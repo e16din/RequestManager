@@ -36,5 +36,4 @@ android {
 
 dependencies {
     compile 'com.squareup.retrofit:retrofit:1.9.0'
-    compile 'com.squareup.okhttp3:okhttp:3.3.1'
 }
