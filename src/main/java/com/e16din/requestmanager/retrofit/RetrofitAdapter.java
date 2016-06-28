@@ -1,6 +1,5 @@
 package com.e16din.requestmanager.retrofit;
 
-import android.support.annotation.NonNull;
 import android.text.TextUtils;
 
 import java.util.Map;
@@ -12,7 +11,9 @@ import retrofit.RestAdapter;
  * Created by e16din on 20.08.15.
  */
 public class RetrofitAdapter extends BaseRetrofitAdapter {
-    public static Object getService(Class requestManagerInterface, RestAdapter.Builder builder, Map<String, String> headers) {
+    public static Object getService(Class requestManagerInterface,
+                                    RestAdapter.Builder builder,
+                                    Map<String, String> headers) {
         builder.setErrorHandler(new StaticErrorHandler())
                 .setRequestInterceptor(getRequestInterceptor(headers));
 
@@ -23,7 +24,6 @@ public class RetrofitAdapter extends BaseRetrofitAdapter {
         return builder.build().create(requestManagerInterface);
     }
 
-    @NonNull
     private static RequestInterceptor getRequestInterceptor(final Map<String, String> headers) {
         return new RequestInterceptor() {
             @Override

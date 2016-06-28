@@ -6,7 +6,7 @@ buildscript {
         maven { url "https://jitpack.io" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.5.0'
+        classpath 'com.android.tools.build:gradle:2.1.2'
     }
 }
 
@@ -17,14 +17,14 @@ repositories {
 
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion "23.0.3"
+    compileSdkVersion 24
+    buildToolsVersion "24.0.0"
 
     defaultConfig {
         minSdkVersion 9
-        targetSdkVersion 23
+        targetSdkVersion 24
         versionCode 1
-        versionName "1.2.4"
+        versionName "1"
     }
     buildTypes {
         release {
@@ -35,7 +35,6 @@ android {
 }
 
 dependencies {
-    compile 'com.github.e16din:LightUtils:1.2.7'
     compile 'com.squareup.retrofit:retrofit:1.9.0'
-    compile 'com.squareup.okhttp:okhttp:2.7.0'
+    compile 'com.squareup.okhttp3:okhttp:3.3.1'
 }
