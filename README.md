@@ -8,14 +8,14 @@
 [![Release](https://jitpack.io/v/e16din/RequestManager.svg)](https://jitpack.io/#e16din/RequestManager)
 
 
-## Callback
+## Пример использования:
 ```java
 //retrofit service method with callback
 @GET("/users/{id}")
 void getUser(@Path("id") long id,
                 RetrofitCallback<User> callback);
 
-//simple callback
+//simple callback (RetrofitCallback implement Callback)
 new RetrofitCallback<Result>(){
             @Override
             public void onSuccess(Result result, int statusCode) {
@@ -42,9 +42,10 @@ public class User implements Result {
         return error == 0;//success condition
     }
 }
+```
 
-
-//RetrofitCallback implement Callback:
+## Callback
+```java
 public interface Callback<T> {
 
     void onSuccess(T result, int statusCode); // start on success result
