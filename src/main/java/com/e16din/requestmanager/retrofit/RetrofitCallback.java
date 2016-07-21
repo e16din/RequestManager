@@ -21,10 +21,19 @@ public abstract class RetrofitCallback<T extends Result>
 
     public static final int HTTP_ERROR_BAD_REQUEST = 400;
 
+    public static final int MAX_RESPONSES = 10;
+
+
     private boolean mWithError = false;
+
+    private Response mResponse;
+
+    private RetrofitError mError;
+
 
     @Override
     public void success(T result, Response response) {
+
         if (needIgnoreExceptions()) {
             try {
                 runOnSuccess(result, response);
@@ -60,6 +69,9 @@ public abstract class RetrofitCallback<T extends Result>
     }
 
     private void runOnSuccess(T result, Response response) {
+        mResponse = response;
+        mError = null;
+
         final String cookies = getCookieString(response);
         if (!TextUtils.isEmpty(cookies)) {
             BaseRetrofitAdapter.setCookies(cookies);
@@ -114,6 +126,9 @@ public abstract class RetrofitCallback<T extends Result>
     }
 
     private void runOnError(RetrofitError error) {
+        mError = error;
+        mResponse = null;
+
         if (needCancel()) {
             onCancel();
             return;
@@ -163,6 +178,24 @@ public abstract class RetrofitCallback<T extends Result>
             }
         }
         return null;
+    }
+
+    /**
+     * Response on success
+     *
+     * @return retrofit Response object or null if error
+     */
+    public Response getResponse() {
+        return mResponse;
+    }
+
+    /**
+     * Error on failure
+     *
+     * @return retrofit RetrofitError object or null if success
+     */
+    public RetrofitError getError() {
+        return mError;
     }
 
     @Override
