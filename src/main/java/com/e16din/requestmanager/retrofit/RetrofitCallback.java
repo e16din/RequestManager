@@ -14,14 +14,13 @@ import retrofit.client.Header;
 import retrofit.client.Response;
 import retrofit.mime.TypedByteArray;
 
-public abstract class RetrofitCallback<T extends Result>
-        implements Callback<T>, retrofit.Callback<T> {
+public abstract class RetrofitCallback<T extends Result> implements Callback<T>, retrofit.Callback<T> {
 
     public static final String LOG_TAG = "RequestManager";
 
     public static final int HTTP_ERROR_BAD_REQUEST = 400;
 
-    public static final int MAX_RESPONSES = 10;
+    private static final Gson GSON = new Gson();
 
 
     private boolean mWithError = false;
@@ -40,7 +39,7 @@ public abstract class RetrofitCallback<T extends Result>
 
             } catch (Exception e) {
                 mWithError = true;
-                onExceptionError(e, null);
+                onExceptionErrorWithAnotherCallbacks(e, null);
             }
 
         } else {
@@ -58,7 +57,7 @@ public abstract class RetrofitCallback<T extends Result>
 
             } catch (Exception e) {
                 mWithError = true;
-                onExceptionError(e, null);
+                onExceptionErrorWithAnotherCallbacks(e, null);
             }
 
         } else {
@@ -79,7 +78,7 @@ public abstract class RetrofitCallback<T extends Result>
 
         if (needCancel()) {
             Log.w(LOG_TAG, "success: operation canceled! try override needCancel method");
-            onCancel();
+            onCancelWithAnotherCallbacks();
             return;
         }
 
@@ -88,41 +87,30 @@ public abstract class RetrofitCallback<T extends Result>
         if (StaticErrorHandler.getLastRetrofitError() != null) {
             mWithError = true;
 
-            final Response handledResponse =
-                    StaticErrorHandler.getLastRetrofitError().getResponse();
-
-            if (handledResponse != null && handledResponse.getStatus() != 0) {
-                onHttpError(handledResponse.getStatus(),
-                        StaticErrorHandler.getLastRetrofitError().getMessage(),
-                        new String(((TypedByteArray) StaticErrorHandler.getLastRetrofitError()
-                                .getResponse().getBody()).getBytes()));
-
-            } else {
-                onExceptionError(StaticErrorHandler.getLastRetrofitError().getCause(),
-                        StaticErrorHandler.getLastRetrofitError().getMessage());
-            }
-
+            onLastRetrofitError();
         } else {
+            final int status = response.getStatus();
+
             if (result == null || result.isSuccess()) {
-                onSuccess(result, response.getStatus());
+                onSuccessWithAnotherCallbacks(result, status);
 
             } else if ((result + "").startsWith("[") && (result + "").length() <= 3) {
-                final Gson gson = new Gson();
 
                 EmptyListResult emptyList = new EmptyListResult();
-                T emptyResult = gson.fromJson(gson.toJson(emptyList),
+                T emptyResult = GSON.fromJson(GSON.toJson(emptyList),
                         new TypeToken<EmptyListResult>() {
                         }.getType());
 
-                onSuccess(emptyResult, response.getStatus());
+                onSuccessWithAnotherCallbacks(emptyResult, status);
 
             } else {
                 mWithError = true;
-                onErrorFromServer(result);
+
+                onErrorFromServerWithAnotherCallbacks(result);
             }
         }
 
-        afterResult(mWithError);
+        afterResultWithAnotherCallbacks();
     }
 
     private void runOnError(RetrofitError error) {
@@ -130,55 +118,171 @@ public abstract class RetrofitCallback<T extends Result>
         mResponse = null;
 
         if (needCancel()) {
-            onCancel();
+            Log.w(LOG_TAG, "error: operation canceled! try override needCancel method");
+            onCancelWithAnotherCallbacks();
             return;
         }
 
         mWithError = true;
 
         if (StaticErrorHandler.getLastRetrofitError() != null) {
-            if (StaticErrorHandler.getLastRetrofitError().getResponse() != null
-                    && StaticErrorHandler.getLastRetrofitError().getResponse().getStatus() != 0) {
+            onLastRetrofitError();
 
-                onHttpError(StaticErrorHandler.getLastRetrofitError().getResponse().getStatus(),
-                        StaticErrorHandler.getLastRetrofitError().getMessage(),
-                        new String(((TypedByteArray) StaticErrorHandler.getLastRetrofitError()
-                                .getResponse().getBody()).getBytes()));
-
-            } else {
-                onExceptionError(StaticErrorHandler.getLastRetrofitError().getCause(),
-                        StaticErrorHandler.getLastRetrofitError().getMessage());
-            }
-
-            StaticErrorHandler.setLastRetrofitError(null);
-            afterResult(mWithError);
+            afterResultWithAnotherCallbacks();
             return;
         }
 
-        Log.e(LOG_TAG, "error: " + error.getMessage());
+        final String errorMessage = error.getMessage();
 
-        if (error.getMessage() != null && (error.getMessage().contains("java.io.EOFException")
-                || error.getMessage().contains("400 Bad Request"))) {
+        Log.e(LOG_TAG, "error: " + errorMessage);
 
-            onHttpError(HTTP_ERROR_BAD_REQUEST, error.getMessage(), null);
-            afterResult(mWithError);
+        if (errorMessage != null && (errorMessage.contains("java.io.EOFException")
+                || errorMessage.contains("400 Bad Request"))) {
+
+            onHttpErrorWithAnotherCallbacks(HTTP_ERROR_BAD_REQUEST, errorMessage, null);
+            afterResultWithAnotherCallbacks();
             return;
         }
 
-        onExceptionError(error.getCause(), error.getMessage());
+        onExceptionErrorWithAnotherCallbacks(error.getCause(), errorMessage);
         StaticErrorHandler.setLastRetrofitError(null);
-        afterResult(mWithError);
+        afterResultWithAnotherCallbacks();
     }
+
+    private void onLastRetrofitError() {
+        final Response errorResponse = StaticErrorHandler.getLastRetrofitError().getResponse();
+        final int status = errorResponse.getStatus();
+        final String message = StaticErrorHandler.getLastRetrofitError().getMessage();
+
+        if (status != 0) {
+            final String body = new String(((TypedByteArray) errorResponse.getBody()).getBytes());
+            onHttpErrorWithAnotherCallbacks(status, message, body);
+
+        } else {
+            final Throwable cause = StaticErrorHandler.getLastRetrofitError().getCause();
+            onExceptionErrorWithAnotherCallbacks(cause, message);
+        }
+
+        StaticErrorHandler.setLastRetrofitError(null);
+    }
+
+    private void onSuccessWithAnotherCallbacks(T result, int status) {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().onSuccess(result, status);
+        }
+
+        onSuccess(result, status);
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().onSuccess(result, status);
+        }
+    }
+
+
+    private void onErrorFromServerWithAnotherCallbacks(T result) {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().onErrorFromServer(result);
+        }
+
+        onErrorFromServer(result);
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().onErrorFromServer(result);
+        }
+    }
+
+    private void onCancelWithAnotherCallbacks() {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().onCancel();
+        }
+
+        onCancel();
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().onCancel();
+        }
+    }
+
+    private void onExceptionErrorWithAnotherCallbacks(Throwable cause, String message) {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().onExceptionError(cause, message);
+        }
+
+        onExceptionError(cause, message);
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().onExceptionError(cause, message);
+        }
+    }
+
+    private void onHttpErrorWithAnotherCallbacks(int status, String message, String body) {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().onHttpError(status, message, body);
+        }
+
+        onHttpError(status, message, body);
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().onHttpError(status, message, body);
+        }
+    }
+
+    private void afterResultWithAnotherCallbacks() {
+        if (previousCallback() != null && !ignorePreviousCallback()) {
+            previousCallback().afterResult(mWithError);
+        }
+
+        afterResult(mWithError);
+
+        if (nextCallback() != null && !ignoreNextCallback()) {
+            nextCallback().afterResult(mWithError);
+        }
+    }
+
 
     private String getCookieString(Response response) {
         for (Header header : response.getHeaders()) {
-            if (header.getName() != null && header.getName().equals("Set-Cookie")) {
-                Log.d(LOG_TAG, "Set-Cookie: " + header.getValue());
+            if (header.getName() != null && header.getName().equals(getCookieHeaderName())) {
+                Log.d(LOG_TAG, getCookieHeaderName() + ": " + header.getValue());
                 return header.getValue();
             }
         }
         return null;
     }
+
+    private String getCookieHeaderName() {
+        return "Set-Cookie";
+    }
+
+
+    /**
+     * Override this method if you need to call any callback after current callback
+     */
+    public RetrofitCallback<T> nextCallback() {
+        return null;
+    }
+
+    /**
+     * Override this method if you need to call any callback before current callback
+     */
+    public RetrofitCallback<T> previousCallback() {
+        return null;
+    }
+
+    /**
+     * Set true to ignore previous callback
+     */
+    public boolean ignorePreviousCallback() {
+        return false;
+    }
+
+    /**
+     * Set true to ignore next callback
+     */
+    public boolean ignoreNextCallback() {
+        return false;
+    }
+
 
     /**
      * Response on success
