@@ -33,7 +33,7 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
     @Override
     public void success(T result, Response response) {
 
-        if (needIgnoreExceptions()) {
+        if (ignoreExceptions()) {
             try {
                 runOnSuccess(result, response);
 
@@ -51,7 +51,7 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
 
     @Override
     public void failure(RetrofitError error) {
-        if (needIgnoreExceptions()) {
+        if (ignoreExceptions()) {
             try {
                 runOnError(error);
 
@@ -180,13 +180,13 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
 
 
     private void onErrorFromServerWithAnotherCallbacks(T result) {
-        if (previousCallback() != null && !ignorePreviousCallback()) {
+        if (previousCallback() != null && !ignorePreviousCallback() && !ignorePreviousCallbackOnError()) {
             previousCallback().onErrorFromServer(result);
         }
 
         onErrorFromServer(result);
 
-        if (nextCallback() != null && !ignoreNextCallback()) {
+        if (nextCallback() != null && !ignoreNextCallback() && !ignoreNextCallbackOnError()) {
             nextCallback().onErrorFromServer(result);
         }
     }
@@ -204,37 +204,37 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
     }
 
     private void onExceptionErrorWithAnotherCallbacks(Throwable cause, String message) {
-        if (previousCallback() != null && !ignorePreviousCallback()) {
+        if (previousCallback() != null && !ignorePreviousCallback() && !ignorePreviousCallbackOnError()) {
             previousCallback().onExceptionError(cause, message);
         }
 
         onExceptionError(cause, message);
 
-        if (nextCallback() != null && !ignoreNextCallback()) {
+        if (nextCallback() != null && !ignoreNextCallback() && !ignoreNextCallbackOnError()) {
             nextCallback().onExceptionError(cause, message);
         }
     }
 
     private void onHttpErrorWithAnotherCallbacks(int status, String message, String body) {
-        if (previousCallback() != null && !ignorePreviousCallback()) {
+        if (previousCallback() != null && !ignorePreviousCallback() && !ignorePreviousCallbackOnError()) {
             previousCallback().onHttpError(status, message, body);
         }
 
         onHttpError(status, message, body);
 
-        if (nextCallback() != null && !ignoreNextCallback()) {
+        if (nextCallback() != null && !ignoreNextCallback() && !ignoreNextCallbackOnError()) {
             nextCallback().onHttpError(status, message, body);
         }
     }
 
     private void afterResultWithAnotherCallbacks() {
-        if (previousCallback() != null && !ignorePreviousCallback()) {
+        if (previousCallback() != null && !ignorePreviousCallback() && (mWithError && !ignorePreviousCallbackOnError())) {
             previousCallback().afterResult(mWithError);
         }
 
         afterResult(mWithError);
 
-        if (nextCallback() != null && !ignoreNextCallback()) {
+        if (nextCallback() != null && !ignoreNextCallback() && (mWithError && !ignoreNextCallbackOnError())) {
             nextCallback().afterResult(mWithError);
         }
     }
@@ -270,10 +270,28 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
     }
 
     /**
+     * Set true to ignore previous callback  on error
+     *
+     * @return default true
+     */
+    public boolean ignorePreviousCallbackOnError() {
+        return true;
+    }
+
+    /**
      * Set true to ignore previous callback
      */
     public boolean ignorePreviousCallback() {
         return false;
+    }
+
+    /**
+     * Set true to ignore next callback on error
+     *
+     * @return default true
+     */
+    public boolean ignoreNextCallbackOnError() {
+        return true;
     }
 
     /**
@@ -328,7 +346,12 @@ public abstract class RetrofitCallback<T extends Result> implements Callback<T>,
     public void onCancel() {
     }
 
-    public boolean needIgnoreExceptions() {
+    /**
+     * Set true if you want to ignore exceptions in callback methods
+     *
+     * @return default is true
+     */
+    public boolean ignoreExceptions() {
         return true;
     }
 }
